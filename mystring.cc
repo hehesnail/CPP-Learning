@@ -1,5 +1,6 @@
 #include <iostream>
 #include "mystring.h"
+#include <vector>
 
 using namespace std;
 
@@ -14,5 +15,12 @@ int main() {
 	s1 = s2;
 	s1.print();
 
+	vector<String> svec;
+	svec.push_back(s1);
+	svec.push_back(s2);
+	svec.push_back("god");
+	svec.push_back("carmack");
+
 	return 0;
 }
+

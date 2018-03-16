@@ -70,6 +70,7 @@ String::String(const String &s) {
 	auto data = alloc_n_copy(s.begin(), s.end());
 	first = data.first;
 	last = data.second;
+	cout << "string copy constructor" << endl;
 }
 
 inline 
@@ -78,6 +79,7 @@ String& String::operator=(const String &s) {
 	free();
 	first = data.first;
 	last = data.second;
+	cout << "string copy operator =" << endl;
 }
 
 inline 
