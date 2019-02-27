@@ -1,0 +1,272 @@
+The resolution and quality of images produced by gen-
+erative methods¡ªespecially generative adversarial net-
+works (GAN) [18]¡ªhave seen rapid improvement recently
+[26, 38, 5]. Yet the generators continue to operate as black
+boxes, and despite recent efforts [3], the understanding of
+various aspects of the image synthesis process, e.g., the ori-
+gin of stochastic features, is still lacking. The properties of
+the latent space are also poorly understood, and the com-
+monly demonstrated latent space interpolations [12, 45, 32]
+provide no quantitative way to compare different generators
+against each other.
+Motivated by style transfer literature [23], we re-design
+the generator architecture in a way that exposes novel ways
+to control the image synthesis process. Our generator starts
+from a learned constant input and adjusts the ¡°style¡± of
+the image at each convolution layer based on the latent
+code, therefore directly controlling the strength of image
+features at different scales. Combined with noise injected
+directly into the network, this architectural change leads to
+automatic, unsupervised separation of high-level attributes
+(e.g., pose, identity) from stochastic variation (e.g., freck-
+les, hair) in the generated images, and enables intuitive
+scale-specific mixing and interpolation operations. We do
+not modify the discriminator or the loss function in any
+way, and our work is thus orthogonal to the ongoing discus-
+sion about GAN loss functions, regularization, and hyper-
+parameters [20, 38, 5, 34, 37, 31].
+Our generator embeds the input latent code into an inter-
+mediate latent space, which has a profound effect on how
+the factors of variation are represented in the network. The
+input latent space must follow the probability density of the
+training data, and we argue that this leads to some degree of
+unavoidable entanglement. Our intermediate latent space
+is free from that restriction and is therefore allowed to be
+disentangled. As previous methods for estimating the de-
+gree of latent space disentanglement are not directly appli-
+cableinourcase, weproposetwonewautomatedmetrics¡ª
+perceptual path length and linear separability¡ªfor quanti-
+fyingtheseaspectsofthegenerator. Usingthesemetrics, we
+show that compared to a traditional generator architecture,
+our generator admits a more linear, less entangled represen-
+tation of different factors of variation.
+Finally, we present a new dataset of human faces (Flickr-
+Faces-HQ, FFHQ) that offers much higher quality and
+covers considerably wider variation than existing high-
+resolution datasets (Appendix A). We will make this dataset
+publicly available, along with our source code and pre-
+trained networks 1 . The accompanying video can be found
+in http://stylegan.xyz/video
+2. Style-based generator
+Traditionally the latent code is provided to the generator
+through an input layer, i.e., the first layer of a feedforward
+network (Figure 1a). We depart from this design by omit-
+ting the input layer altogether and starting from a learned
+constant instead (Figure 1b, right). Given a latent code z
+in the input latent space Z, a non-linear mapping network
+f : Z ¡ú W first produces w ¡Ê W (Figure 1b, left). For
+simplicity, we set the dimensionality of both spaces to 512,
+1 http://stylegan.xyz/code
+1
+arXiv:1812.04948v1 [cs.NE] 12 Dec 2018
+Normalize
+Fully-connected
+PixelNorm
+PixelNorm
+Conv 3¡Á3
+Conv 3¡Á3
+Conv 3¡Á3
+PixelNorm
+PixelNorm
+Upsample
+Normalize
+FC
+FC
+FC
+FC
+FC
+FC
+FC
+FC
+A
+A
+A
+A
+B
+B
+B
+B
+Const 4¡Á4¡Á512
+AdaIN
+AdaIN
+AdaIN
+AdaIN
+Upsample
+Conv 3¡Á3
+Conv 3¡Á3
+Conv 3¡Á3
+4¡Á4
+8¡Á8
+4¡Á4
+8¡Á8
+style
+style
+style
+style
+Noise Latent Latent
+Mapping
+network
+Synthesis network
+(a) Traditional (b) Style-based generator
+Figure 1. While a traditional generator [26] feeds the latent code
+though the input layer only, we first map the input to an in-
+termediate latent space W, which then controls the generator
+through adaptive instance normalization (AdaIN) at each convo-
+lution layer. Gaussian noise is added after each convolution, be-
+fore evaluating the nonlinearity. Here ¡°A¡± stands for a learned
+affine transform, and ¡°B¡± applies learned per-channel scaling fac-
+tors to the noise input. The mapping network f consists of 8 lay-
+ers and the synthesis network g consists of 18 layers¡ªtwo for
+each resolution (4 2 ? 1024 2 ). The output of the last layer is con-
+verted to RGB using a separate 1 ¡Á 1 convolution, similar to Kar-
+ras et al. [26]. Our generator has a total of 26.2M trainable param-
+eters, compared to 23.1M in the traditional generator.
+and the mapping f is implemented using an 8-layer MLP,
+a decision we will analyze in Section 4.1. Learned affine
+transformations then specialize w to styles y = (y s ,y b )
+that control adaptive instance normalization (AdaIN) [23]
+operations after each convolution layer of the synthesis net-
+work g. The AdaIN operation is defined as
+AdaIN(x i ,y) = y s,i
+x i ? ¦Ì(x i )
+¦Ò(x i )
++ y b,i , (1)
+where each feature map x i is normalized separately, and
+then scaled and biased using the corresponding scalar com-
+ponents from style y. Thus the dimensionality of y is twice
+the number of feature maps on that layer.
+Comparing our approach to style transfer, we compute
+the spatially invariant style y from vector w instead of an
+example image. We choose to reuse the word ¡°style¡± for
+y because similar network architectures are already used
+for feedforward style transfer [23], unsupervised image-to-
+image translation [24], and domain mixtures [19].
+Finally, we provide our generator with a direct means
+to generate stochastic detail by introducing explicit noise
+inputs. These are single-channel images consisting of un-
+Method CelebA-HQ FFHQ
+A Baseline Progressive GAN [26] 7.79 8.04
+B + Tuning (incl. bilinear up/down) 6.11 5.25
+C + Add mapping and styles 5.34 4.85
+D + Remove traditional input 5.07 4.88
+E + Add noise inputs 5.06 4.42
+F + Mixing regularization 5.17 4.40
+Table 1. Fr¨¦chet inception distance (FID) for various generator de-
+signs (lower is better). In this paper we calculate the FIDs using
+50,000 images drawn randomly from the training set, and report
+the lowest distance encountered over the course of training.
+correlated Gaussian noise, and we feed a dedicated noise
+image to each layer of the synthesis network. The noise
+image is broadcasted to all feature maps using learned per-
+feature scaling factors and then added to the output of the
+corresponding convolution, as illustrated in Figure 1b. The
+implications of adding the noise inputs are discussed in Sec-
+tions 3.2 and 3.3.
+2.1. Quality of generated images
+Before studying the properties of our generator, we
+demonstrate experimentally that the redesign does not com-
+promise image quality but, in fact, improves it considerably.
+Table 1 gives Fr¨¦chet inception distances (FID) [21] for
+various generator architectures in C ELEB A-HQ [26] and
+our new FFHQ dataset (Appendix A). Results for other
+datasets are given in Appendix E. Our baseline configura-
+tion ( A ) is the Progressive GAN setup of Karras et al. [26],
+from which we inherit the networks and all hyperparame-
+ters except where stated otherwise. We first switch to an
+improved baseline ( B ) by using bilinear up/downsampling
+operations, longer training, and tuned hyperparameters. A
+detailed description of training setups and hyperparameters
+is included in Appendix C. We then improve this new base-
+line further by adding the mapping network and AdaIN op-
+erations ( C ), and make a surprising observation that the net-
+worknolongerbenefitsfromfeedingthelatentcodeintothe
+first convolution layer. We therefore simplify the architec-
+ture by removing the traditional input layer and starting the
+image synthesis from a learned 4 ¡Á 4 ¡Á 512 constant tensor
+( D ). We find it quite remarkable that the synthesis network
+is ableto produce meaningful resultseven though it receives
+input only through the styles that control the AdaIN opera-
+tions.
+Finally, we introduce the noise inputs ( E ) that improve
+the results further, as well as novel mixing regularization ( F )
+that decorrelates neighboring styles and enables more fine-
+grained control over the generated imagery (Section 3.1).
+We evaluate our methods using two different loss func-
+tions: for C ELEB A-HQ we rely on WGAN-GP [20],
+while FFHQ uses WGAN-GP for configuration A and non-
+saturating loss [18] with R 1 regularization [37, 44, 13] for
+2
+Figure 2. Uncurated set of images produced by our style-based
+generator (config F ) with the FFHQ dataset. Here we used a vari-
+ation of the truncation trick [5, 29] with ¦× = 0.7 for resolutions
+4 2 ? 32 2 . Please see the accompanying video for more results.
+configurations B ¨C F . We found these choices to give the best
+results. Our contributions do not modify the loss function.
+We observe that the style-based generator ( E ) improves
+FIDs quite significantly over the traditional generator ( B ),
+almost 20%, corroborating the large-scale ImageNet mea-
+surements made in parallel work [6, 5]. Figure 2 shows
+an uncurated set of novel images generated from the FFHQ
+dataset using our generator. As confirmed by the FIDs, the
+average quality is high, and even accessories such as eye-
+glasses and hats get successfully synthesized. For this fig-
+ure, we avoided sampling from the extreme regions of W
+using the so-called truncation trick [5, 29]¡ªAppendix B
+details how the trick can be performed in W instead of Z.
+Note that our generator allows applying the truncation se-
+lectively to low resolutions only, so that high-resolution de-
+tails are not affected.
+All FIDs in this paper are computed without the trun-
+cation trick, and we only use it for illustrative purposes in
+Figure 2 and the video. All images are generated in 1024 2
+resolution.
+2.2. Prior art
+Much of the work on GAN architectures has focused on
+improving the discriminator by, e.g., using multiple dis-
+criminators [15, 40], multiresolution discrimination [52,
+48], or self-attention [55]. The work on generator side has
+mostly focused on the exact distribution in the input latent
+space [5] or shaping the input latent space via Gaussian
+mixture models [4], clustering [41], or encouraging convex-
+ity [45].
+Recent conditional generators feed the class identifier
+through a separate embedding network to a large number
+of layers in the generator [39], while the latent is still pro-
+vided though the input layer. A few authors have considered
+feeding parts of the latent code to multiple generator layers
+[9, 5]. In parallel work, Chen et al. [6] ¡°self modulate¡± the
+generator using AdaINs, similarly to our work, but do not
+consider an intermediate latent space or noise inputs.
+3. Properties of the style-based generator
+Our generator architecture makes it possible to control
+the image synthesis via scale-specific modifications to the
+styles. We can view the mapping network and affine trans-
+formations as a way to draw samples for each style from a
+learned distribution, and the synthesis network as a way to
+generate a novel image based on a collection of styles. The
+effects of each style are localized in the network, i.e., modi-
+fying a specific subset of the styles can be expected to affect
+only certain aspects of the image.
+To see the reason for this localization, let us consider
+howtheAdaINoperation(Eq.1)firstnormalizeseachchan-
+nel to zero mean and unit variance, and only then applies
+scales and biases based on the style. The new per-channel
+statistics, as dictated by the style, modify the relative impor-
+tance of features for the subsequent convolution operation,
+but they do not depend on the original statistics because of
+the normalization. Thus each style controls only one convo-
+lution before being overridden by the next AdaIN operation.
+3.1. Style mixing
+To further encourage the styles to localize, we employ
+mixing regularization, where a given percentage of images
+are generated using two random latent codes instead of one
+during training. When generating such an image, we sim-
+ply switch from one latent code to another¡ªan operation
+we refer to as style mixing¡ªat a randomly selected point
+in the synthesis network. To be specific, we run two latent
+codes z 1 ,z 2 through the mapping network, and have the
+corresponding w 1 ,w 2 control the styles so that w 1 applies
+before the crossover point and w 2 after it. This regular-
+ization technique prevents the network from assuming that
+adjacent styles are correlated.
+Table 2 shows how enabling mixing regularization dur-
