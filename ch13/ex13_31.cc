@@ -9,8 +9,9 @@ class HasPtr {
 public:
 	friend void swap(HasPtr&, HasPtr&);
 	HasPtr(const string &s = string()):
-		ps(new string(s)), i(0) { }
+		ps(new string(s)), i(0) { cout << "call constructor" << endl;}
 	HasPtr(const HasPtr&);
+	HasPtr(HasPtr &&p) noexcept;
 	//HasPtr& operator=(const HasPtr&);
 	HasPtr& operator=(HasPtr);
 	bool operator<(const HasPtr&);
@@ -29,6 +30,13 @@ private:
 HasPtr::HasPtr(const HasPtr &rhs) {
 	ps = new string(*(rhs.ps));
 	i = rhs.i;
+	cout << "call copy constructor" << endl;
+}
+
+HasPtr::HasPtr(HasPtr &&p) noexcept
+	:ps(p.ps), i(p.i) {
+	p.ps = nullptr;
+	cout << "call move constructor" << endl;
 }
 
 /*
@@ -65,6 +73,8 @@ void swap(HasPtr &lhs, HasPtr &rhs) {
 }
 
 int main() {
+
+	/*
 	HasPtr p1("hello?");
 	HasPtr p2("yes!");
 	
@@ -89,6 +99,11 @@ int main() {
 	for (auto i = pv.begin(); i != pv.end(); i++) {
 		cout << i->getString() << endl;
 	}
+	*/
+
+	HasPtr hp1("hello"), hp2("world"), *pH = new HasPtr("Wrokd");
+	hp1 = hp2;
+	hp1 = std::move(*pH);
 
 	return 0;
 }

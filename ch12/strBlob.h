@@ -38,6 +38,7 @@ public:
 
 	//! add and remove
 	void push_back(const string& t) {data->push_back(t);}
+	void push_back(string &&s) { data->push_back(std::move(s)); }
 	void pop_back();
 
 	//! elements access
